@@ -1,0 +1,76 @@
+version: '3.4'
+
+services:
+  mysql:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - backend-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+
+  wordpress:
+    image: bitnami/wordpress
+    environment:
+      - WORDPRESS_DATABASE_HOST=${WORDPRESS_DATABASE_HOST}
+      - WORDPRESS_DATABASE_USER=${WORDPRESS_DATABASE_USER}
+      - WORDPRESS_DATABASE_PASSWORD=${WORDPRESS_DATABASE_PASSWORD}
+      - WORDPRESS_DATABASE_NAME=${WORDPRESS_DATABASE_NAME}
+      - WORDPRESS_BLOG_NAME=${WORDPRESS_BLOG_NAME}
+      - WORDPRESS_USERNAME=${WORDPRESS_USERNAME}
+      - WORDPRESS_PASSWORD=${WORDPRESS_PASSWORD}
+      - WORDPRESS_EMAIL=${WORDPRESS_EMAIL}
+    volumes:
+      - wordpress_data:/bitnami/wordpress
+    networks:
+      - frontend-network
+      - backend-network
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      - PMA_ARBITRARY=1
+    ports:
+      - 8080:80
+    networks:
+      - frontend-network
+      - backend-network
+    restart: always
+    depends_on:
+      - mysql
+
+  https-portal:
+    image: steveltn/https-portal:1
+    ports:
+      - 80:80
+      - 443:443
+    restart: always
+    environment:
+      DOMAINS: "${DOMAIN} -> http://wordpress:8080"
+      STAGE: 'production'
+    networks:
+      - frontend-network
+    depends_on:
+      - wordpress
+
+volumes:
+  mysql_data:
+  wordpress_data:
+
+networks:
+  frontend-network:
+  backend-network:
